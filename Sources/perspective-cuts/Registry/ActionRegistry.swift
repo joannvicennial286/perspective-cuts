@@ -28,10 +28,42 @@ struct ActionRegistry: Sendable {
     let iconColors: [String: Int]
 
     static func load() throws -> ActionRegistry {
-        guard let url = Bundle.module.url(forResource: "actions", withExtension: "json") else {
-            throw RegistryError(message: "Could not find actions.json in bundle")
+        let data: Data
+
+        // Try multiple locations for actions.json
+        let candidates: [URL] = {
+            var urls: [URL] = []
+
+            // 1. Next to executable (brew install puts bundle here)
+            let execDir = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+            urls.append(execDir.appendingPathComponent("perspective-cuts_perspective-cuts.bundle/actions.json"))
+
+            // 2. Homebrew Cellar path (symlinked binary)
+            if let resolved = try? FileManager.default.destinationOfSymbolicLink(atPath: CommandLine.arguments[0]) {
+                let resolvedDir = URL(fileURLWithPath: resolved).deletingLastPathComponent()
+                urls.append(resolvedDir.appendingPathComponent("perspective-cuts_perspective-cuts.bundle/actions.json"))
+            }
+
+            // 3. Bundle.module path (works in dev via swift run)
+            if let bundleURL = Bundle.main.url(forResource: "actions", withExtension: "json", subdirectory: nil) {
+                urls.append(bundleURL)
+            }
+
+            return urls
+        }()
+
+        var foundData: Data?
+        for url in candidates {
+            if let d = try? Data(contentsOf: url) {
+                foundData = d
+                break
+            }
         }
-        let data = try Data(contentsOf: url)
+
+        guard let loaded = foundData else {
+            throw RegistryError(message: "Could not find actions.json. Searched: \(candidates.map(\.path).joined(separator: ", "))")
+        }
+        data = loaded
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
 
         var actions: [String: ActionDefinition] = [:]
