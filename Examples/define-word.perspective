@@ -1,0 +1,8 @@
+import Shortcuts
+#color: darkBlue
+#icon: magnifyingglass
+#name: Define Word
+
+ask(prompt: "Enter a word to define") -> word
+useModel(prompt: "Define the word '\(word)' in plain English. Give the definition, part of speech, and use it in a sentence.", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> definition
+showResult(text: definition)

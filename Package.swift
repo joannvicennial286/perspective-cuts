@@ -1,0 +1,25 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "perspective-cuts",
+    platforms: [.macOS(.v15)],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "perspective-cuts",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            resources: [
+                .process("Resources")
+            ]
+        ),
+        .testTarget(
+            name: "perspective-cuts-tests",
+            dependencies: ["perspective-cuts"]
+        ),
+    ]
+)

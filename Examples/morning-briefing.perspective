@@ -1,0 +1,10 @@
+import Shortcuts
+#color: orange
+#icon: sun
+#name: Morning Briefing
+
+getCurrentDate() -> today
+getUpcomingEvents() -> events
+getBattery() -> battery
+useModel(prompt: "Give me a quick morning briefing. Keep it short and conversational.\n\nDate: \(today)\nUpcoming events: \(events)\nBattery: \(battery)%", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> briefing
+showResult(text: briefing)

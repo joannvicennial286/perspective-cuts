@@ -1,0 +1,9 @@
+import Shortcuts
+#color: teal
+#icon: wand
+#name: Rewrite Clipboard
+
+getClipboard() -> clip
+useModel(prompt: "Rewrite this to be clearer and more concise. Return only the rewritten text, nothing else:\n\(clip)", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> rewritten
+setClipboard(input: rewritten)
+notification(body: "Your clipboard has been rewritten.", title: "Clipboard AI", sound: true)

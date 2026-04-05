@@ -1,0 +1,130 @@
+import Shortcuts
+#color: green
+#icon: list
+#name: Full Test Suite
+
+// === TEXT AND DATA ===
+text(text: "Test started") -> t1
+text(text: "1. text: PASS") -> r1
+
+number(value: 42) -> num
+text(text: "2. number: \(num)") -> r2
+
+randomNumber(min: 1, max: 100) -> rand
+text(text: "3. randomNumber: \(rand)") -> r3
+
+calculate(operand: 10, operation: "+") -> calc
+text(text: "4. calculate: \(calc)") -> r4
+
+url(url: "https://example.com") -> myUrl
+text(text: "5. url: \(myUrl)") -> r5
+
+count(Input: t1, type: "Characters") -> chars
+text(text: "6. count: \(chars) chars") -> r6
+
+getItemName(input: myUrl) -> iName
+text(text: "7. getItemName: \(iName)") -> r7
+
+getItemType(input: myUrl) -> iType
+text(text: "8. getItemType: \(iType)") -> r8
+
+// === TEXT MANIPULATION ===
+text(text: "Hello World 2026") -> orig
+replaceText(input: orig, find: "World", replace: "Perspective") -> replaced
+text(text: "9. replaceText: \(replaced)") -> r9
+
+text(text: "one,two,three") -> csvIn
+splitText(text: csvIn, separator: "Custom", customSeparator: ",") -> parts
+text(text: "10. splitText: \(parts)") -> r10
+
+combineText(text: parts, separator: "Custom", customSeparator: " - ") -> combined
+text(text: "11. combineText: \(combined)") -> r11
+
+// === DATE AND TIME ===
+getCurrentDate() -> now
+text(text: "12. getCurrentDate: \(now)") -> r12
+
+formatDate(date: now, style: "Medium") -> formatted
+text(text: "13. formatDate: \(formatted)") -> r13
+
+// === DEVICE ===
+getBattery() -> battery
+text(text: "14. getBattery: \(battery)%") -> r14
+
+getIPAddress() -> ip
+text(text: "15. getIPAddress: \(ip)") -> r15
+
+getDeviceDetail(detail: "Device Name") -> devName
+text(text: "16. getDeviceDetail: \(devName)") -> r16
+
+getWiFiNetwork() -> wifi
+text(text: "17. getWiFiNetwork: \(wifi)") -> r17
+
+// === WEB AND URLs ===
+downloadURL(url: "https://api.github.com/zen") -> zen
+text(text: "18. downloadURL: \(zen)") -> r18
+
+getRSSFeed(url: "https://taylorarndt.substack.com/feed", count: 1) -> feed
+text(text: "19. getRSSFeed: PASS") -> r19
+
+urlEncode(input: "hello world test", mode: "Encode") -> urlenc
+text(text: "20. urlEncode: \(urlenc)") -> r20
+
+// === CLIPBOARD ===
+getClipboard() -> clip
+text(text: "21. getClipboard: PASS") -> r21
+
+setClipboard(input: clip)
+text(text: "22. setClipboard: PASS") -> r22
+
+// === ENCODING ===
+text(text: "Hello") -> b64In
+base64Encode(input: b64In, mode: "Encode") -> encoded
+text(text: "23. base64Encode: \(encoded)") -> r23
+
+text(text: "perspective") -> hashIn
+hash(input: hashIn, type: "MD5") -> hashed
+text(text: "24. hash: \(hashed)") -> r24
+
+// === CALENDAR ===
+getUpcomingEvents() -> events
+text(text: "25. getUpcomingEvents: \(events)") -> r25
+
+getUpcomingReminders() -> reminders
+text(text: "26. getUpcomingReminders: \(reminders)") -> r26
+
+// === TRANSLATION ===
+translateText(input: "Good morning", language: "es_ES", from: "en_US") -> spanish
+text(text: "27. translateText ES: \(spanish)") -> r27
+
+translateText(input: "Good morning", language: "fr_FR", from: "en_US") -> french
+text(text: "28. translateText FR: \(french)") -> r28
+
+translateText(input: "Good morning", language: "ja_JP", from: "en_US") -> japanese
+text(text: "29. translateText JA: \(japanese)") -> r29
+
+// === APPLE INTELLIGENCE ===
+useModel(prompt: "Reply with exactly: PCC OK", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> pcc
+text(text: "30. useModel PCC: \(pcc)") -> r30
+
+// === COMMUNICATION ===
+notification(body: "Test 31 passed", title: "Test Suite", sound: true)
+text(text: "31. notification: PASS") -> r31
+
+// === MEDIA ===
+text(text: "32. speakText: TESTED SEPARATELY") -> r32
+
+// === SHORTCUTS ===
+wait(seconds: 1)
+text(text: "33. wait: PASS") -> r33
+
+comment(text: "This is a comment test")
+text(text: "34. comment: PASS") -> r34
+
+nothing()
+text(text: "35. nothing: PASS") -> r35
+
+// === RESULTS - COPY FIRST THEN SHOW ===
+text(text: "=== PERSPECTIVE CUTS TEST RESULTS ===\n\(r1)\n\(r2)\n\(r3)\n\(r4)\n\(r5)\n\(r6)\n\(r7)\n\(r8)\n\(r9)\n\(r10)\n\(r11)\n\(r12)\n\(r13)\n\(r14)\n\(r15)\n\(r16)\n\(r17)\n\(r18)\n\(r19)\n\(r20)\n\(r21)\n\(r22)\n\(r23)\n\(r24)\n\(r25)\n\(r26)\n\(r27)\n\(r28)\n\(r29)\n\(r30)\n\(r31)\n\(r32)\n\(r33)\n\(r34)\n\(r35)\n=== 35 TESTS COMPLETE ===") -> allResults
+setClipboard(input: allResults)
+showResult(text: allResults)

@@ -1,0 +1,8 @@
+import Shortcuts
+#color: darkBlue
+#icon: message
+#name: Ask Perspective Intelligence
+
+ask(prompt: "What do you want to ask Perspective Intelligence?") -> question
+online.techopolis.PerspectiveAI.CreatePerspectiveConversationIntent(initialPrompt: question) -> answer
+showResult(text: answer)

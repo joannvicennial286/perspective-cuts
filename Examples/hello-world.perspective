@@ -1,0 +1,7 @@
+import Shortcuts
+#color: blue
+#icon: gear
+
+// A simple hello world shortcut
+text("Hello from Perspective Cuts!") -> greeting
+showResult(text: greeting)

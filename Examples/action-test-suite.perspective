@@ -1,0 +1,36 @@
+import Shortcuts
+#color: green
+#icon: list
+#name: Action Test Suite
+
+// Test 1: downloadURL
+downloadURL(url: "https://api.github.com/zen") -> wisdom
+text(text: "1. downloadURL: \(wisdom)") -> r1
+
+// Test 2: replaceText
+text(text: "Hello World 2026") -> original
+replaceText(input: original, find: "World", replace: "Perspective") -> replaced
+text(text: "2. replaceText: \(replaced)") -> r2
+
+// Test 3: formatDate
+getCurrentDate() -> now
+formatDate(date: now, style: "Medium") -> formatted
+text(text: "3. formatDate: \(formatted)") -> r3
+
+// Test 4: translateText
+text(text: "Hello, how are you?") -> english
+translateText(input: english, language: "es_ES") -> spanish
+text(text: "4. translateText: \(spanish)") -> r4
+
+// Test 5: speakText
+speakText(text: "Action test suite complete.", rate: 0.5, wait: true)
+text(text: "5. speakText: Done") -> r5
+
+// Test 6: openApp
+text(text: "6. openApp: Skipped to avoid interruption") -> r6
+
+// Test 7: addReminder
+text(text: "7. addReminder: Skipped to avoid clutter") -> r7
+
+// Show all results
+showResult(text: "\(r1)\n\n\(r2)\n\n\(r3)\n\n\(r4)\n\n\(r5)\n\n\(r6)\n\n\(r7)")

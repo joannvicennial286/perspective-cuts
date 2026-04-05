@@ -1,0 +1,8 @@
+import Shortcuts
+#color: green
+#icon: message
+#name: Ask ChatGPT
+
+ask(prompt: "What do you want to ask ChatGPT?") -> question
+com.openai.chat.AskIntent(prompt: question) -> answer
+showResult(text: answer)

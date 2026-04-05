@@ -1,0 +1,7 @@
+import Shortcuts
+#color: red
+#icon: bolt
+#name: Battery Alert
+
+getBattery() -> level
+notification(body: "Your battery is at \(level)%.", title: "Battery Check", sound: true)

@@ -1,0 +1,8 @@
+import Shortcuts
+#color: purple
+#icon: compose
+#name: Taylors Substack Summarizer
+
+getRSSFeed(url: "https://taylorarndt.substack.com/feed", count: 5) -> feedItems
+useModel(prompt: "Summarize each of these blog posts in 3 key bullet points:\n\(feedItems)", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> summary
+showResult(text: summary)

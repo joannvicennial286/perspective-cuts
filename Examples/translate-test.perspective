@@ -1,0 +1,7 @@
+import Shortcuts
+#color: green
+#icon: globe
+#name: Translate Test
+
+translateText(input: "Good morning, the weather is beautiful today.", language: "ja_JP", from: "en_US") -> translated
+showResult(text: translated)

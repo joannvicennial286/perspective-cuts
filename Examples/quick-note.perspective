@@ -1,0 +1,10 @@
+import Shortcuts
+#color: yellow
+#icon: pencil
+#name: Quick Note
+
+ask(prompt: "What do you want to note?") -> note
+getCurrentDate() -> now
+text(text: "\(now): \(note)") -> entry
+setClipboard(input: entry)
+notification(body: "Note copied to clipboard.", title: "Quick Note", sound: true)
