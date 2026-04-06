@@ -133,7 +133,7 @@ struct Lexer: Sendable {
                 let idLoc = SourceLocation(line: line, column: column)
                 var word = String(char)
                 advance(&index, &column)
-                while index < source.endIndex && (source[index].isLetter || source[index].isNumber || source[index] == "_" || source[index] == "'") {
+                while index < source.endIndex && (source[index].isLetter || source[index].isNumber || source[index] == "_" || source[index] == "'" || (source[index] == "-" && peek(index).map({ $0.isLetter || $0.isNumber }) == true)) {
                     word.append(source[index])
                     advance(&index, &column)
                 }

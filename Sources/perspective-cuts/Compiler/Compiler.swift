@@ -14,6 +14,12 @@ struct CompilerError: Error, CustomStringConvertible {
 
 struct Compiler: Sendable {
     let registry: ActionRegistry
+    let toolKitReader: ToolKitReader?
+
+    init(registry: ActionRegistry, toolKitReader: ToolKitReader? = nil) {
+        self.registry = registry
+        self.toolKitReader = toolKitReader
+    }
 
     // Track output name -> UUID mapping so variable references use ActionOutput
     private struct OutputRef {
@@ -65,10 +71,11 @@ struct Compiler: Sendable {
             case .actionCall(let name, let arguments, let output, let location):
                 let def = registry.actions[name]
                 // If action contains dots, treat as raw identifier (3rd party app action)
+                let isThirdParty = def == nil && name.contains(".")
                 let identifier: String
                 if let def {
                     identifier = def.identifier
-                } else if name.contains(".") {
+                } else if isThirdParty {
                     identifier = name
                 } else {
                     var msg = "Unknown action: '\(name)'"
@@ -77,6 +84,10 @@ struct Compiler: Sendable {
                     }
                     throw CompilerError(message: msg, location: location)
                 }
+
+                // For 3rd-party actions, look up parameter types from the ToolKit DB
+                let toolKitParams: [String: ToolKitParameterDetail]? = isThirdParty
+                    ? toolKitReader?.getParameterInfo(actionIdentifier: name) : nil
 
                 var params: [String: Any] = [:]
                 let uuid = UUID().uuidString
@@ -87,32 +98,57 @@ struct Compiler: Sendable {
 
                 for (label, value) in arguments {
                     if let label {
-                        // Find the parameter definition to determine the type
-                        let paramDef: ActionParameter? = def.flatMap { d in
-                            d.parameters[label] ??
-                            d.parameters.first(where: { $0.key.caseInsensitiveCompare(label) == .orderedSame })?.value ??
-                            d.parameters.first(where: {
-                                let stripped = $0.key.replacingOccurrences(of: "WF", with: "", options: [.anchored, .caseInsensitive])
-                                return stripped.caseInsensitiveCompare(label) == .orderedSame
-                            })?.value
-                        }
-
-                        // Enum, boolean, plainString, and enumInt types use plain values, not WFTextTokenString
                         let resolvedValue: Any
-                        if let paramType = paramDef?.type, paramType == "enumInt",
-                           let valueMap = paramDef?.valueMap,
-                           case .stringLiteral(let s) = value,
-                           let intVal = valueMap[s] {
-                            resolvedValue = intVal
-                        } else if let paramType = paramDef?.type, (paramType == "enum" || paramType == "boolean" || paramType == "plainString") {
-                            resolvedValue = try expressionToPlainValue(value)
+
+                        if isThirdParty {
+                            // 3rd-party App Intent action — use ToolKit type info
+                            let tkParam = toolKitParams?[label]
+                            if tkParam?.isDynamicEntity == true || tkParam?.typeKind == 2 {
+                                // Dynamic entity: wrap as { value, title, subtitle }
+                                let plainVal = try expressionToPlainValue(value)
+                                let strVal = "\(plainVal)"
+                                resolvedValue = [
+                                    "value": strVal,
+                                    "title": ["key": strVal],
+                                    "subtitle": ["key": strVal]
+                                ] as [String: Any]
+                            } else if tkParam?.typeKind == 3 || tkParam?.typeKind == 4 {
+                                // Static enum: use plain value
+                                resolvedValue = try expressionToPlainValue(value)
+                            } else {
+                                // Primitives (string, int, bool, etc.): use plain values
+                                resolvedValue = try expressionToPlainValue(value)
+                            }
                         } else {
-                            resolvedValue = try expressionToValueWithOutputMap(value, outputMap: outputMap)
+                            // Built-in action — use ActionRegistry parameter definitions
+                            let paramDef: ActionParameter? = def.flatMap { d in
+                                d.parameters[label] ??
+                                d.parameters.first(where: { $0.key.caseInsensitiveCompare(label) == .orderedSame })?.value ??
+                                d.parameters.first(where: {
+                                    let stripped = $0.key.replacingOccurrences(of: "WF", with: "", options: [.anchored, .caseInsensitive])
+                                    return stripped.caseInsensitiveCompare(label) == .orderedSame
+                                })?.value
+                            }
+
+                            if let paramType = paramDef?.type, paramType == "enumInt",
+                               let valueMap = paramDef?.valueMap,
+                               case .stringLiteral(let s) = value,
+                               let intVal = valueMap[s] {
+                                resolvedValue = intVal
+                            } else if let paramType = paramDef?.type, (paramType == "enum" || paramType == "boolean" || paramType == "plainString") {
+                                resolvedValue = try expressionToPlainValue(value)
+                            } else {
+                                resolvedValue = try expressionToValueWithOutputMap(value, outputMap: outputMap)
+                            }
+
+                            // For built-in actions, map friendly name to plist key
+                            let plistKey = paramDef?.key ?? label
+                            params[plistKey] = resolvedValue
+                            continue
                         }
 
-                        // For raw identifiers without registry, use label directly as plist key
-                        let plistKey = paramDef?.key ?? label
-                        params[plistKey] = resolvedValue
+                        // For 3rd-party actions, use the label directly as the key
+                        params[label] = resolvedValue
                     }
                 }
 

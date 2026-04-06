@@ -7,7 +7,7 @@ struct PerspectiveCuts: ParsableCommand {
         commandName: "perspective",
         abstract: "Perspective Cuts — A text-based Apple Shortcuts compiler",
         version: "0.1.0",
-        subcommands: [Compile.self, Validate.self, Actions.self, Discover.self]
+        subcommands: [Compile.self, Validate.self, Actions.self, Discover.self, Detail.self]
     )
 }
 
@@ -35,7 +35,8 @@ struct Compile: ParsableCommand {
         let tokens = try Lexer(source: source).tokenize()
         let nodes = try Parser(tokens: tokens).parse()
         let registry = try ActionRegistry.load()
-        let plist = try Compiler(registry: registry).compile(nodes: nodes)
+        let toolKitReader = try? Self.openToolKitDB()
+        let plist = try Compiler(registry: registry, toolKitReader: toolKitReader).compile(nodes: nodes)
 
         // Determine output path
         let inputURL = URL(fileURLWithPath: file)
@@ -115,6 +116,18 @@ struct Compile: ParsableCommand {
             sqlite3_finalize(checkStmt)
             FileHandle.standardError.write(Data("Shortcut '\(name)' not found. Import with --sign first, then use --install to update.\n".utf8))
         }
+    }
+
+    static func openToolKitDB() throws -> ToolKitReader {
+        let base = NSHomeDirectory() + "/Library/Shortcuts/ToolKit"
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(atPath: base) else {
+            throw ValidationError("ToolKit directory not found at \(base)")
+        }
+        guard let dbFile = contents.first(where: { $0.hasPrefix("Tools-prod") && $0.hasSuffix(".sqlite") }) else {
+            throw ValidationError("No ToolKit database found in \(base)")
+        }
+        return try ToolKitReader(path: base + "/" + dbFile)
     }
 
     private func readSource(_ path: String) throws -> String {
@@ -234,8 +247,7 @@ struct Discover: ParsableCommand {
     var thirdParty: Bool = false
 
     func run() throws {
-        let toolkitPath = try findToolKitDB()
-        let db = try ToolKitReader(path: toolkitPath)
+        let db = try Compile.openToolKitDB()
         let actions = try db.discoverActions(search: search, thirdPartyOnly: thirdParty)
 
         if actions.isEmpty {
@@ -280,18 +292,6 @@ struct Discover: ParsableCommand {
         print("  \(actions.first?.id ?? "com.example.app.Action")(param: \"value\") -> result")
     }
 
-    private func findToolKitDB() throws -> String {
-        let base = NSHomeDirectory() + "/Library/Shortcuts/ToolKit"
-        let fm = FileManager.default
-        guard let contents = try? fm.contentsOfDirectory(atPath: base) else {
-            throw ValidationError("ToolKit directory not found at \(base)")
-        }
-        guard let db = contents.first(where: { $0.hasPrefix("Tools-prod") && $0.hasSuffix(".sqlite") }) else {
-            throw ValidationError("No ToolKit database found in \(base)")
-        }
-        return base + "/" + db
-    }
-
     private func appName(from identifier: String) -> String {
         let parts = identifier.split(separator: ".")
         if parts.count >= 3 {
@@ -301,11 +301,123 @@ struct Discover: ParsableCommand {
     }
 }
 
+// MARK: - Detail
+
+struct Detail: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Show detailed parameter info for an action from the ToolKit database"
+    )
+
+    @Argument(help: "Action identifier (e.g. app.techopolis.Perspective-Actions.UseLocalModelIntent)")
+    var identifier: String
+
+    func run() throws {
+        let reader = try Compile.openToolKitDB()
+
+        // Try exact match first, then search
+        guard let detail = reader.getActionDetail(identifier: identifier) else {
+            // Try partial match
+            let matches = try reader.discoverActions(search: identifier, thirdPartyOnly: false)
+            if matches.isEmpty {
+                throw ValidationError("Action '\(identifier)' not found in ToolKit database.")
+            }
+            print("Action '\(identifier)' not found. Did you mean one of these?")
+            for m in matches.prefix(10) {
+                print("  \(m.id)")
+            }
+            return
+        }
+
+        // Header
+        print(detail.identifier)
+        if !detail.displayName.isEmpty {
+            print("  \"\(detail.displayName)\"")
+        }
+        if let ret = detail.returnType {
+            print("  Returns: \(ret)")
+        }
+        print("")
+
+        // Parameters
+        if detail.parameters.isEmpty {
+            print("  No parameters")
+        } else {
+            print("  Parameters:")
+            let maxKeyLen = detail.parameters.map(\.key.count).max() ?? 0
+            let maxTypeLen = detail.parameters.map(\.typeLabel.count).max() ?? 0
+
+            for param in detail.parameters {
+                let paddedKey = param.key.padding(toLength: maxKeyLen + 2, withPad: " ", startingAt: 0)
+                let paddedType = param.typeLabel.padding(toLength: maxTypeLen + 2, withPad: " ", startingAt: 0)
+                let display = param.displayName.map { "\"\($0)\"" } ?? ""
+                print("    \(paddedKey)\(paddedType)\(display)")
+
+                if param.isDynamicEntity {
+                    print("      [dynamic entity — app provides values at runtime]")
+                }
+                if !param.enumCases.isEmpty {
+                    let caseList = param.enumCases.map { c in
+                        c.title.isEmpty || c.title == c.id ? c.id : "\(c.id) (\(c.title))"
+                    }.joined(separator: ", ")
+                    print("      Values: \(caseList)")
+                }
+                if let desc = param.description, !desc.isEmpty {
+                    print("      \(desc)")
+                }
+            }
+        }
+
+        // Usage hint
+        print("")
+        let exampleParams = detail.parameters.prefix(3).map { p -> String in
+            if p.typeId == "int" || p.typeId == "number" {
+                return "\(p.key): 0"
+            } else if p.typeId == "bool" {
+                return "\(p.key): true"
+            } else {
+                return "\(p.key): \"value\""
+            }
+        }.joined(separator: ", ")
+        print("  Usage: \(detail.identifier)(\(exampleParams)) -> result")
+    }
+}
+
 // MARK: - ToolKit Database Reader
 
 import SQLite3
 
-struct ToolKitReader {
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+struct ToolKitParameterDetail {
+    let key: String
+    let displayName: String?
+    let description: String?
+    let typeId: String       // "string", "int", "bool", "file", or entity/enum type ID
+    let typeKind: Int        // 1=primitive, 2=entity, 3=enum, 4=scoped enum, 6=query
+    let isDynamicEntity: Bool
+    let enumCases: [(id: String, title: String)]
+    let sortOrder: Int
+
+    var typeLabel: String {
+        if isDynamicEntity { return "entity" }
+        switch typeKind {
+        case 2: return "entity"
+        case 3, 4: return "enum"
+        case 6: return "query"
+        default: return typeId
+        }
+    }
+}
+
+struct ToolKitActionDetail {
+    let identifier: String
+    let displayName: String
+    let returnType: String?
+    let parameters: [ToolKitParameterDetail]
+}
+
+// @unchecked Sendable: db is opened read-only and used synchronously within each command.
+final class ToolKitReader: @unchecked Sendable {
     let db: OpaquePointer
 
     init(path: String) throws {
@@ -317,10 +429,53 @@ struct ToolKitReader {
         self.db = db
     }
 
+    deinit {
+        sqlite3_close(db)
+    }
+
+    // MARK: - Action Detail
+
+    func getActionDetail(identifier: String) -> ToolKitActionDetail? {
+        // Look up tool by identifier
+        var stmt: OpaquePointer?
+        let query = "SELECT rowId, id FROM Tools WHERE id = ? LIMIT 1"
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, identifier, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+
+        let toolId = Int(sqlite3_column_int64(stmt, 0))
+        guard let idCStr = sqlite3_column_text(stmt, 1) else { return nil }
+        let actionId = String(cString: idCStr)
+
+        let displayName = getLocalization(toolId: toolId)
+        let returnType = getOutputType(toolId: toolId)
+        let parameters = getParameterDetails(toolId: toolId, actionIdentifier: actionId)
+
+        return ToolKitActionDetail(
+            identifier: actionId,
+            displayName: displayName,
+            returnType: returnType,
+            parameters: parameters
+        )
+    }
+
+    /// Look up parameter details for a 3rd-party action by identifier.
+    /// Returns nil if the action is not found in the ToolKit DB.
+    func getParameterInfo(actionIdentifier: String) -> [String: ToolKitParameterDetail]? {
+        guard let detail = getActionDetail(identifier: actionIdentifier) else { return nil }
+        var map: [String: ToolKitParameterDetail] = [:]
+        for p in detail.parameters {
+            map[p.key] = p
+        }
+        return map
+    }
+
+    // MARK: - Discover (existing)
+
     func discoverActions(search: String?, thirdPartyOnly: Bool) throws -> [(id: String, name: String, params: [String])] {
         var results: [(id: String, name: String, params: [String])] = []
 
-        // Get all tools
         var query = "SELECT t.rowId, t.id FROM Tools t"
         if thirdPartyOnly {
             query += " WHERE t.id NOT LIKE 'is.workflow.actions.%' AND t.id NOT LIKE 'com.apple.%'"
@@ -336,22 +491,19 @@ struct ToolKitReader {
             guard let idCStr = sqlite3_column_text(stmt, 1) else { continue }
             let toolId = String(cString: idCStr)
 
-            // Filter by search
             if let search = search?.lowercased() {
                 guard toolId.lowercased().contains(search) else { continue }
             }
 
-            // Get display name
             let name = getLocalization(toolId: Int(rowId))
-
-            // Get parameters
-            let params = getParameters(toolId: Int(rowId))
-
+            let params = getParameterKeys(toolId: Int(rowId))
             results.append((id: toolId, name: name, params: params))
         }
 
         return results
     }
+
+    // MARK: - Private Helpers
 
     private func getLocalization(toolId: Int) -> String {
         var stmt: OpaquePointer?
@@ -365,7 +517,7 @@ struct ToolKitReader {
         return ""
     }
 
-    private func getParameters(toolId: Int) -> [String] {
+    private func getParameterKeys(toolId: Int) -> [String] {
         var params: [String] = []
         var stmt: OpaquePointer?
         let query = "SELECT key FROM Parameters WHERE toolId = ? ORDER BY sortOrder"
@@ -378,5 +530,124 @@ struct ToolKitReader {
             }
         }
         return params
+    }
+
+    private func getOutputType(toolId: Int) -> String? {
+        var stmt: OpaquePointer?
+        let query = "SELECT typeIdentifier FROM ToolOutputTypes WHERE toolId = ? LIMIT 1"
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int64(stmt, 1, Int64(toolId))
+        if sqlite3_step(stmt) == SQLITE_ROW, let cstr = sqlite3_column_text(stmt, 0) {
+            return String(cString: cstr)
+        }
+        return nil
+    }
+
+    private func getParameterDetails(toolId: Int, actionIdentifier: String) -> [ToolKitParameterDetail] {
+        var results: [ToolKitParameterDetail] = []
+
+        // Get parameters with their types and localizations
+        var stmt: OpaquePointer?
+        let query = """
+            SELECT p.key, p.sortOrder, p.typeInstance,
+                   pl.name, pl.description,
+                   tpt.typeId
+            FROM Parameters p
+            LEFT JOIN ParameterLocalizations pl ON pl.toolId = p.toolId AND pl.key = p.key AND pl.locale = 'en'
+            LEFT JOIN ToolParameterTypes tpt ON tpt.toolId = p.toolId AND tpt.key = p.key
+            WHERE p.toolId = ?
+            ORDER BY p.sortOrder
+            """
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return results }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int64(stmt, 1, Int64(toolId))
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let key: String = {
+                guard let cstr = sqlite3_column_text(stmt, 0) else { return "" }
+                return String(cString: cstr)
+            }()
+            let sortOrder = Int(sqlite3_column_int64(stmt, 1))
+
+            // Detect dynamic entity params by checking the typeInstance protobuf blob.
+            // When an App Intent parameter is backed by a dynamic entity query, Apple embeds
+            // the full action identifier (e.g. "app.techopolis.Perspective-Actions.UseLocalModelIntent")
+            // in the blob. We match the full identifier to avoid false positives on short names.
+            let isDynamic: Bool = {
+                let blobLen = sqlite3_column_bytes(stmt, 2)
+                guard blobLen > 50, let blobPtr = sqlite3_column_blob(stmt, 2) else { return false }
+                let data = Data(bytes: blobPtr, count: Int(blobLen))
+                return data.range(of: Data(actionIdentifier.utf8)) != nil
+            }()
+
+            let displayName: String? = {
+                guard let cstr = sqlite3_column_text(stmt, 3) else { return nil }
+                return String(cString: cstr)
+            }()
+            let description: String? = {
+                guard let cstr = sqlite3_column_text(stmt, 4) else { return nil }
+                return String(cString: cstr)
+            }()
+            let typeId: String = {
+                guard let cstr = sqlite3_column_text(stmt, 5) else { return "string" }
+                return String(cString: cstr)
+            }()
+
+            // Get type kind from Types table
+            let typeKind = getTypeKind(typeId: typeId)
+
+            // Get enum cases if applicable
+            let enumCases: [(id: String, title: String)] = (typeKind == 3 || typeKind == 4)
+                ? getEnumCases(typeId: typeId) : []
+
+            results.append(ToolKitParameterDetail(
+                key: key,
+                displayName: displayName,
+                description: description,
+                typeId: typeId,
+                typeKind: typeKind,
+                isDynamicEntity: isDynamic,
+                enumCases: enumCases,
+                sortOrder: sortOrder
+            ))
+        }
+
+        return results
+    }
+
+    private func getTypeKind(typeId: String) -> Int {
+        // Note: Types.rowId is TEXT PRIMARY KEY in Apple's ToolKit schema (not the implicit integer rowid).
+        // Values are type identifiers like "string", "bool", "com.example.MyEntity", etc.
+        var stmt: OpaquePointer?
+        let query = "SELECT kind FROM Types WHERE rowId = ? LIMIT 1"
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return 1 }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, typeId, -1, SQLITE_TRANSIENT)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            return Int(sqlite3_column_int64(stmt, 0))
+        }
+        return 1
+    }
+
+    private func getEnumCases(typeId: String) -> [(id: String, title: String)] {
+        var cases: [(id: String, title: String)] = []
+        var stmt: OpaquePointer?
+        let query = "SELECT id, title FROM EnumerationCases WHERE typeId = ? AND locale = 'en' ORDER BY id"
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return cases }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, typeId, -1, SQLITE_TRANSIENT)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id: String = {
+                guard let cstr = sqlite3_column_text(stmt, 0) else { return "" }
+                return String(cString: cstr)
+            }()
+            let title: String = {
+                guard let cstr = sqlite3_column_text(stmt, 1) else { return "" }
+                return String(cString: cstr)
+            }()
+            cases.append((id: id, title: title))
+        }
+        return cases
     }
 }
