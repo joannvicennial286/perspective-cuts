@@ -2,6 +2,10 @@
 
 A text-based language for writing Apple Shortcuts. Write code, compile it, get a shortcut. No dragging blocks. No clicking menus. Just text.
 
+<p align="center">
+  <img src="demos/hero.gif" alt="Terminal demo showing Perspective Cuts compiling a shortcut, listing actions, and discovering third-party app actions" width="800">
+</p>
+
 **This is a highly experimental project.** Things will break. APIs will change. Actions might not work on your machine. If you are okay with that, keep reading.
 
 ## Why I Built This
@@ -61,6 +65,8 @@ open hello.shortcut
 
 ## Example: Substack Summarizer with Private Cloud Compute
 
+<img src="demos/compile.gif" alt="Terminal demo compiling a Substack Summarizer shortcut with Private Cloud Compute" width="800">
+
 ```
 import Shortcuts
 #color: purple
@@ -86,6 +92,8 @@ showResult(text: answer)
 ```
 
 ## CLI
+
+<img src="demos/discover.gif" alt="Terminal demo showing the discover command finding third-party app actions" width="800">
 
 ```bash
 perspective-cuts compile --sign file.perspective    # Compile and sign

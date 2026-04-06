@@ -34,17 +34,25 @@ struct ActionRegistry: Sendable {
         let candidates: [URL] = {
             var urls: [URL] = []
 
-            // 1. Next to executable (brew install puts bundle here)
             let execDir = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
-            urls.append(execDir.appendingPathComponent("perspective-cuts_perspective-cuts.bundle/actions.json"))
 
-            // 2. Homebrew Cellar path (symlinked binary)
+            // 1. Next to executable
+            urls.append(execDir.appendingPathComponent("actions.json"))
+
+            // 2. Homebrew Cellar layout: <prefix>/bin/perspective-cuts -> <prefix>/Resources/actions.json
+            urls.append(execDir.deletingLastPathComponent().appendingPathComponent("Resources/actions.json"))
+
+            // 3. Resolved symlink (Homebrew symlinks /opt/homebrew/bin -> Cellar)
             if let resolved = try? FileManager.default.destinationOfSymbolicLink(atPath: CommandLine.arguments[0]) {
                 let resolvedDir = URL(fileURLWithPath: resolved).deletingLastPathComponent()
-                urls.append(resolvedDir.appendingPathComponent("perspective-cuts_perspective-cuts.bundle/actions.json"))
+                urls.append(resolvedDir.appendingPathComponent("actions.json"))
+                urls.append(resolvedDir.deletingLastPathComponent().appendingPathComponent("Resources/actions.json"))
             }
 
-            // 3. Bundle.module path (works in dev via swift run)
+            // 4. SPM resource bundle (swift run in development)
+            urls.append(execDir.appendingPathComponent("perspective-cuts_perspective-cuts.bundle/actions.json"))
+
+            // 5. Bundle.main fallback
             if let bundleURL = Bundle.main.url(forResource: "actions", withExtension: "json", subdirectory: nil) {
                 urls.append(bundleURL)
             }
