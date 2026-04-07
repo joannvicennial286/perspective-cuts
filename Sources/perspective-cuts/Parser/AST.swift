@@ -26,6 +26,7 @@ enum Expression: Sendable {
     case boolLiteral(Bool)
     case variableReference(String)
     case interpolatedString(parts: [StringPart])
+    case dictionaryLiteral([(key: Expression, value: Expression)])
 }
 
 enum StringPart: Sendable {

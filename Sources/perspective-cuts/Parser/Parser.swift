@@ -384,9 +384,56 @@ struct Parser: Sendable {
         case .identifier(let name):
             pos += 1
             return .variableReference(name)
+        case .leftBrace:
+            return try parseDictionaryLiteral(&pos)
         default:
             throw ParserError(message: "Expected expression, got \(token.kind)", location: token.location)
         }
+    }
+
+    private func parseDictionaryLiteral(_ pos: inout Int) throws -> Expression {
+        let loc = tokens[pos].location
+        pos += 1 // skip {
+        var entries: [(key: Expression, value: Expression)] = []
+
+        skipNewlines(&pos)
+        while pos < tokens.count && tokens[pos].kind != .rightBrace {
+            skipNewlines(&pos)
+            if tokens[pos].kind == .rightBrace { break }
+
+            // Parse key (string literal or identifier)
+            let key: Expression
+            switch tokens[pos].kind {
+            case .stringLiteral(let s):
+                key = .stringLiteral(s)
+                pos += 1
+            case .identifier(let name):
+                key = .stringLiteral(name)
+                pos += 1
+            default:
+                throw ParserError(message: "Expected dictionary key (string or identifier)", location: tokens[pos].location)
+            }
+
+            guard pos < tokens.count, tokens[pos].kind == .colon else {
+                throw ParserError(message: "Expected ':' after dictionary key", location: tokens[pos].location)
+            }
+            pos += 1 // skip :
+            skipNewlines(&pos)
+
+            let value = try parseExpression(&pos)
+            entries.append((key: key, value: value))
+
+            skipNewlines(&pos)
+            if pos < tokens.count && tokens[pos].kind == .comma {
+                pos += 1
+                skipNewlines(&pos)
+            }
+        }
+        guard pos < tokens.count, tokens[pos].kind == .rightBrace else {
+            throw ParserError(message: "Expected '}' to close dictionary literal", location: loc)
+        }
+        pos += 1 // skip }
+        return .dictionaryLiteral(entries)
     }
 
     private func parseCondition(_ pos: inout Int) throws -> Condition {
