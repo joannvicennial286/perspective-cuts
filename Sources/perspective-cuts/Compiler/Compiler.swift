@@ -47,6 +47,8 @@ struct Compiler: Sendable {
         var menuBarEnabled = false
         // nil means "not set" -> use the full default content-class list.
         var explicitInputClasses: [String]? = nil
+        // nil means "not set" -> Shortcuts default ("Continue").
+        var noInputBehavior: [String: Any]? = nil
 
         for node in nodes {
             switch node {
@@ -80,6 +82,9 @@ struct Compiler: Sendable {
                 if key == "watch" {
                     watchEnabled = parseBoolDirective(value)
                 }
+                if key == "noinput" {
+                    noInputBehavior = try parseNoInputDirective(value: value, location: loc)
+                }
             case .comment(let text, _):
                 actions.append(buildAction(
                     identifier: "is.workflow.actions.comment",
@@ -103,12 +108,16 @@ struct Compiler: Sendable {
                 ))
             case .actionCall(let name, let arguments, let output, let location):
                 let def = registry.actions[name]
-                // If action contains dots, treat as raw identifier (3rd party app action)
-                let isThirdParty = def == nil && name.contains(".")
+                // If action contains dots, treat as raw identifier. Apple's own
+                // `is.workflow.actions.*` namespace is built-in territory even
+                // when the action is not in the registry — only treat names
+                // outside that namespace as 3rd-party App Intent actions.
+                let isAppleBuiltinRaw = def == nil && name.hasPrefix("is.workflow.actions.")
+                let isThirdParty = def == nil && name.contains(".") && !isAppleBuiltinRaw
                 let identifier: String
                 if let def {
                     identifier = def.identifier
-                } else if isThirdParty {
+                } else if isThirdParty || isAppleBuiltinRaw {
                     identifier = name
                 } else {
                     var msg = "Unknown action: '\(name)'"
@@ -169,6 +178,11 @@ struct Compiler: Sendable {
                                let intVal = valueMap[s] {
                                 resolvedValue = intVal
                             } else if let paramType = paramDef?.type, (paramType == "enum" || paramType == "boolean" || paramType == "plainString") {
+                                resolvedValue = try expressionToPlainValue(value)
+                            } else if isAppleBuiltinRaw && Compiler.appleBuiltinPlainKeys.contains(label) {
+                                // Raw Apple identifier with a known scalar key
+                                // (e.g. WFVariableName, Shell, InputMode, Script):
+                                // emit as plain value, not a tokenized text field.
                                 resolvedValue = try expressionToPlainValue(value)
                             } else {
                                 resolvedValue = try expressionToValueWithOutputMap(value, outputMap: outputMap)
@@ -302,7 +316,7 @@ struct Compiler: Sendable {
             }
         }
 
-        return [
+        var plist: [String: Any] = [
             "WFWorkflowMinimumClientVersionString": "900",
             "WFWorkflowMinimumClientVersion": 900,
             "WFWorkflowClientVersion": "1200",
@@ -322,7 +336,24 @@ struct Compiler: Sendable {
             "WFWorkflowActions": actions,
             "WFWorkflowName": shortcutName
         ]
+        if let noInputBehavior {
+            plist["WFWorkflowNoInputBehavior"] = noInputBehavior
+        }
+        return plist
     }
+
+    // For raw `is.workflow.actions.*` calls, these parameter labels are scalar
+    // settings (variable names, shell choice, script body, enum values) and
+    // must be emitted as plain strings — not wrapped in WFTextTokenString —
+    // so Shortcuts.app shows them correctly and writes them back unchanged.
+    private static let appleBuiltinPlainKeys: Set<String> = [
+        "WFVariableName",
+        "WFCommentActionText",
+        "Shell",
+        "InputMode",
+        "Script",
+        "WFTextActionText"
+    ]
 
     private static let defaultInputContentClasses: [String] = [
         "WFAppStoreAppContentItem",
@@ -359,6 +390,22 @@ struct Compiler: Sendable {
     private func parseBoolDirective(_ value: String) -> Bool {
         let v = value.trimmingCharacters(in: .whitespaces).lowercased()
         return v == "true" || v == "yes" || v == "1" || v == "on"
+    }
+
+    private func parseNoInputDirective(value: String, location: SourceLocation) throws -> [String: Any] {
+        let v = value.trimmingCharacters(in: .whitespaces).lowercased()
+        switch v {
+        case "continue":
+            return ["Name": "ContinueWithInput", "Parameters": [String: Any]()]
+        case "ask", "askforinput":
+            return ["Name": "AskForInput", "Parameters": [String: Any]()]
+        case "clipboard", "getclipboard":
+            return ["Name": "GetClipboard", "Parameters": [String: Any]()]
+        case "cancel":
+            return ["Name": "ReturnToHomeScreen", "Parameters": [String: Any]()]
+        default:
+            throw CompilerError(message: "Unknown #noinput value '\(value)'. Valid: continue, ask, clipboard, cancel", location: location)
+        }
     }
 
     private func parseInputDirective(value: String, location: SourceLocation) throws -> [String] {
