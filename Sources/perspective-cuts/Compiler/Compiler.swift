@@ -402,13 +402,13 @@ struct Compiler: Sendable {
         let v = value.trimmingCharacters(in: .whitespaces).lowercased()
         switch v {
         case "continue":
-            return ["Name": "ContinueWithInput", "Parameters": [String: Any]()]
+            return ["Name": "WFWorkflowNoInputBehaviorContinueWithInput", "Parameters": [String: Any]()]
         case "ask", "askforinput":
-            return ["Name": "AskForInput", "Parameters": [String: Any]()]
+            return ["Name": "WFWorkflowNoInputBehaviorAskForInput", "Parameters": [String: Any]()]
         case "clipboard", "getclipboard":
-            return ["Name": "GetClipboard", "Parameters": [String: Any]()]
+            return ["Name": "WFWorkflowNoInputBehaviorGetClipboard", "Parameters": [String: Any]()]
         case "cancel":
-            return ["Name": "ReturnToHomeScreen", "Parameters": [String: Any]()]
+            return ["Name": "WFWorkflowNoInputBehaviorReturnToHomeScreen", "Parameters": [String: Any]()]
         default:
             throw CompilerError(message: "Unknown #noinput value '\(value)'. Valid: continue, ask, clipboard, cancel", location: location)
         }
@@ -521,30 +521,39 @@ struct Compiler: Sendable {
         case .numberLiteral(let n): return n == n.rounded() ? Int(n) : n
         case .boolLiteral(let b): return b
         case .variableReference(let name):
-            // Use WFTextTokenString with attachmentsByRange -- this is how Apple's own shortcuts pass variables
+            // A bare variable reference (the entire field is the variable, not
+            // text containing it) is serialised as WFTextTokenAttachment with
+            // the descriptor at the top of `Value`. This is the form
+            // Shortcuts.app uses when it draws a vertical connection line
+            // between two action boxes; using WFTextTokenString here causes
+            // the boxes to render disconnected even though the data flows.
+            //
+            // The special name "ShortcutInput" maps to Apple's
+            // ExtensionInput token (the magic variable that represents
+            // whatever was passed in via Share Sheet / Quick Action / run
+            // input), not to a regular named variable.
+            if name == "ShortcutInput" {
+                return [
+                    "Value": ["Type": "ExtensionInput"],
+                    "WFSerializationType": "WFTextTokenAttachment"
+                ] as [String: Any]
+            }
             if let ref = outputMap[name] {
                 return [
                     "Value": [
-                        "string": "\u{FFFC}",
-                        "attachmentsByRange": [
-                            "{0, 1}": [
-                                "OutputName": ref.name,
-                                "OutputUUID": ref.uuid,
-                                "Type": "ActionOutput"
-                            ]
-                        ]
+                        "OutputName": ref.name,
+                        "OutputUUID": ref.uuid,
+                        "Type": "ActionOutput"
                     ],
-                    "WFSerializationType": "WFTextTokenString"
+                    "WFSerializationType": "WFTextTokenAttachment"
                 ] as [String: Any]
             }
             return [
                 "Value": [
-                    "string": "\u{FFFC}",
-                    "attachmentsByRange": [
-                        "{0, 1}": ["VariableName": name, "Type": "Variable"]
-                    ]
+                    "VariableName": name,
+                    "Type": "Variable"
                 ],
-                "WFSerializationType": "WFTextTokenString"
+                "WFSerializationType": "WFTextTokenAttachment"
             ] as [String: Any]
         case .interpolatedString(let parts):
             var text = ""
